@@ -129,6 +129,10 @@ class JSONLIterator:
     append-only JSONL use cases. It also has the ability to start from
     anywhere in the file and ignore corrupted lines.
 
+    Blank lines (lines containing only whitespace) are automatically skipped.
+    When a line fails to parse and ``ignore_errors=False``, the exception
+    message will include the 1-based line number for easier debugging.
+
     Args:
         file_obj (file): An open file object.
         ignore_errors (bool): Whether to skip over lines that raise an error on
@@ -148,6 +152,7 @@ class JSONLIterator:
         self._reverse = bool(reverse)
         self._file_obj = file_obj
         self.ignore_errors = ignore_errors
+        self._line_num = 0
 
         if rel_seek is None:
             if reverse:
@@ -212,14 +217,17 @@ class JSONLIterator:
         the end of the file (or beginning, if ``reverse`` was set to ``True``.
         """
         while 1:
-            line = next(self._line_iter).lstrip()
-            if not line:
+            line = next(self._line_iter)
+            self._line_num += 1
+            stripped_line = line.strip()
+            if not stripped_line:
                 continue
             try:
-                obj = json.loads(line)
-            except Exception:
+                obj = json.loads(stripped_line)
+            except Exception as exc:
                 if not self.ignore_errors:
-                    raise
+                    raise ValueError('error reading line %s: %s'
+                                     % (self._line_num, exc)) from exc
                 continue
             return obj
 
