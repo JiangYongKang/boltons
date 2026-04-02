@@ -1049,6 +1049,10 @@ def default_visit(path, key, value):
 _orig_default_visit = default_visit
 
 
+def _is_namedtuple_instance(value):
+    return isinstance(value, tuple) and hasattr(value, '_fields')
+
+
 def default_enter(path, key, value):
     # print('enter(%r, %r)' % (key, value))
     if isinstance(value, (str, bytes)):
@@ -1056,6 +1060,8 @@ def default_enter(path, key, value):
     elif isinstance(value, Mapping):
         return value.__class__(), ItemsView(value)
     elif isinstance(value, Sequence):
+        if _is_namedtuple_instance(value):
+            return tuple(), enumerate(value)
         return value.__class__(), enumerate(value)
     elif isinstance(value, Set):
         return value.__class__(), enumerate(value)
@@ -1076,13 +1082,16 @@ def default_exit(path, key, old_parent, new_parent, new_items):
         try:
             new_parent.extend(vals)
         except AttributeError:
-            ret = new_parent.__class__(vals)  # tuples
+            if _is_namedtuple_instance(old_parent):
+                ret = old_parent.__class__(*vals)
+            else:
+                ret = new_parent.__class__(vals)
     elif isinstance(new_parent, Set):
         vals = [v for i, v in new_items]
         try:
             new_parent.update(vals)
         except AttributeError:
-            ret = new_parent.__class__(vals)  # frozensets
+            ret = new_parent.__class__(vals)
     else:
         raise RuntimeError('unexpected iterable type: %r' % type(new_parent))
     return ret

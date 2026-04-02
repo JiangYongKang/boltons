@@ -128,24 +128,19 @@ class TestRemap:
         assert remapped[0] is not duperef[0]
 
     def test_namedtuple(self):
-        """TODO: this fails right now because namedtuples' __new__ is
-        overridden to accept arguments. remap's default_enter tries
-        to create an empty namedtuple and gets a TypeError.
+        """Test that namedtuples are properly remapped.
 
-        Could make it so that immutable types actually don't create a
-        blank new parent and instead use the old_parent as a
-        placeholder, creating a new one at exit-time from the value's
-        __class__ (how default_exit works now). But even then it would
-        have to *args in the values, as namedtuple constructors don't
-        take an iterable.
+        Namedtuples cannot be created empty (e.g., Point() without args),
+        so default_enter uses a plain tuple() as a placeholder, and
+        default_exit reconstructs the namedtuple using *args unpacking.
         """
-
         Point = namedtuple('Point', 'x y')
         point_map = {'origin': [Point(0, 0)]}
 
-        with pytest.raises(TypeError):
-            remapped = remap(point_map)
-            assert isinstance(remapped['origin'][0], Point)
+        remapped = remap(point_map)
+        assert isinstance(remapped['origin'][0], Point)
+        assert remapped['origin'][0] == Point(0, 0)
+        assert remapped == point_map
 
     def test_path(self):
         path_map = {}
